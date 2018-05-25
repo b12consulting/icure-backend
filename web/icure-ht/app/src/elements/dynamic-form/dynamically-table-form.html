@@ -27,82 +27,13 @@
                 @apply --padding-right-left-16
             }
 
-            vaadin-grid.material {
+            vaadin-grid{
+				height:calc(100% - 104px);
+				margin: 32px 32px 0;
+				box-shadow: var(--app-shadow-elevation-1);
+				border: none;
+			}
 
-                font-family: Roboto, sans-serif;
-                --divider-color: rgba(0, 0, 0, var(--dark-divider-opacity));
-
-                --vaadin-grid-cell: {
-                    padding: 8px;
-                };
-
-                --vaadin-grid-header-cell: {
-                    height: 64px;
-                    color: rgba(0, 0, 0, var(--dark-secondary-opacity));
-                    font-size: 12px;
-                };
-
-                --vaadin-grid-body-cell: {
-                    height: 48px;
-                    color: rgba(0, 0, 0, var(--dark-primary-opacity));
-                    font-size: 13px;
-                };
-
-                --vaadin-grid-body-row-hover-cell: {
-                    background-color: var(--paper-grey-200);
-                };
-
-                --vaadin-grid-body-row-selected-cell: {
-                    background-color: var(--paper-grey-100);
-                };
-
-                --vaadin-grid-focused-cell: {
-                    box-shadow: none;
-                    font-weight: bold;
-                };
-            }
-
-            vaadin-grid.material .cell {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                padding-right: 56px;
-            }
-
-            vaadin-grid.material .cell.last {
-                padding-right: 24px;
-            }
-
-            vaadin-grid.material .cell.numeric {
-                text-align: right;
-            }
-
-            vaadin-grid.material paper-checkbox {
-                --primary-color: var(--paper-indigo-500);
-                margin: 0 24px;
-            }
-
-            vaadin-grid.material vaadin-grid-sorter .cell {
-                flex: 1;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-
-            vaadin-grid.material vaadin-grid-sorter iron-icon {
-                transform: scale(0.8);
-            }
-
-            vaadin-grid.material vaadin-grid-sorter:not([direction]) iron-icon {
-                color: rgba(0, 0, 0, var(--dark-disabled-opacity));
-            }
-
-            vaadin-grid.material vaadin-grid-sorter[direction] {
-                color: rgba(0, 0, 0, var(--dark-primary-opacity));
-            }
-
-            vaadin-grid.material vaadin-grid-sorter[direction=desc] iron-icon {
-                transform: scale(0.8) rotate(180deg);
-            }
 
             .link .ICD-10 span {
                 content: '';
@@ -125,15 +56,17 @@
 
         <ckmeans-grouping id="ckmeans-grouping" max-distance="1800000"></ckmeans-grouping>
 
-        <vaadin-grid id="dynamic-list" size="10" multi-sort="[[multiSort]]" items="[[_labels(contacts,contacts.*, columns.*)]]" class="material" active-item="{{activeItem}}" on-tap="click">
+        <vaadin-grid id="dynamic-list" size="10" multi-sort="[[multiSort]]" items="[[_labels(contacts,contacts.*, columns.*)]]" active-item="{{activeItem}}" on-tap="click">
             <vaadin-grid-column width="100px">
-                <template class="header">Label</template>
+                <template class="header">
+                    <vaadin-grid-sorter path="label">Label</vaadin-grid-sorter>
+                </template>
                 <template>[[item.label]]</template>
             </vaadin-grid-column>
             <template is="dom-repeat" items="[[columns]]" as="date" index-as="columnIndex">
                 <vaadin-grid-column width="100px">
                     <template class="header">
-                        [[date]]
+                        [[_date(date)]]
                     </template>
                     <template>[[_itemValueAtIndex(item,index)]]</template>
                 </vaadin-grid-column>
@@ -199,12 +132,10 @@
                     (acc[s.modified] || (acc[s.modified] = [])).push(s)
                     return acc
                 }, {})
-                console.log(datesServices)
                 const labelsServices = services.reduce((acc,s)=>{
                     (acc[s.label] || (acc[s.label] = {label: s.label, services :[]})).services.push(s)
                     return acc
                 }, {})
-                console.log(labelsServices)
                 this.set('labelsServices', labelsServices)
                 const clusters = (Object.keys(datesServices).length>2) ? this.$['ckmeans-grouping'].cluster(_.sortBy(Object.keys(datesServices).map(d => parseInt(d)))).clusters : _.sortBy(Object.keys(datesServices)).map(d=>parseInt(d))
                 this.set('clusters',clusters)
@@ -236,7 +167,10 @@
             _itemValueAtIndex(item, index) {
                 const services = item && item.services && item.services.filter(s=>this.clusters[index] && this.clusters[index].includes(s.modified)) || [];
                 return services.length ? services.map(s=>this._shortDescription(s)).join(', ') : '-'
-            }
+            },
+            _date: function (date) {
+                return date ? this.api.moment(date).format(date > 99991231 ? 'DD/MM/YYYY HH:mm' : 'DD/MM/YYYY') : ''
+            },
 
         })
     </script>
