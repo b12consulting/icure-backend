@@ -23,13 +23,17 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import ma.glasnost.orika.MapperFacade;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.taktik.icure.entities.Document;
+import org.taktik.icure.entities.Invoice;
+import org.taktik.icure.entities.embed.Delegation;
+import org.taktik.icure.entities.embed.DocumentType;
 import org.taktik.icure.exceptions.CreationException;
 import org.taktik.icure.exceptions.DeletionException;
 import org.taktik.icure.logic.DocumentLogic;
@@ -37,6 +41,9 @@ import org.taktik.icure.logic.SessionLogic;
 import org.taktik.icure.security.CryptoUtils;
 import org.taktik.icure.services.external.rest.v1.dto.DocumentDto;
 import org.taktik.icure.services.external.rest.v1.dto.EMailDocumentDto;
+import org.taktik.icure.services.external.rest.v1.dto.IcureDto;
+import org.taktik.icure.services.external.rest.v1.dto.IcureStubDto;
+import org.taktik.icure.services.external.rest.v1.dto.ListOfIdsDto;
 import org.taktik.icure.services.external.rest.v1.dto.be.GenericResult;
 import org.taktik.icure.utils.FormUtils;
 import org.taktik.icure.utils.ResponseUtils;
@@ -132,7 +139,7 @@ public class DocumentFacade implements OpenApiFacade{
 	@GET
 	@Path("/{documentId}/attachment/{attachmentId}")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
-	public Response getAttachment(@PathParam("documentId") String documentId, @PathParam("attachmentId") String attachmentId, @QueryParam("sfks") String sfks) {
+	public Response getAttachment(@PathParam("documentId") String documentId, @PathParam("attachmentId") String attachmentId, @QueryParam("enckeys") String enckeys) {
 		Response response;
 
 		if (documentId == null) {
@@ -148,8 +155,8 @@ public class DocumentFacade implements OpenApiFacade{
 		} else {
 			byte[] attachment = document.getAttachment();
 			if (attachment != null) {
-				if (sfks != null && sfks.length()>0) {
-					for (String sfk : sfks.split(",")) {
+				if (enckeys != null && enckeys.length()>0) {
+					for (String sfk : enckeys.split(",")) {
 						ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
 						UUID uuid = UUID.fromString(sfk);
 						bb.putLong(uuid.getMostSignificantBits());
@@ -157,7 +164,7 @@ public class DocumentFacade implements OpenApiFacade{
 						try {
 							attachment = CryptoUtils.decryptAES(attachment, bb.array());
 							break;
-						} catch (NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IllegalBlockSizeException | InvalidAlgorithmParameterException ignored) {
+						} catch (NoSuchPaddingException | NoSuchAlgorithmException | IllegalArgumentException | BadPaddingException | InvalidKeyException | IllegalBlockSizeException | InvalidAlgorithmParameterException ignored) {
 						}
 					}
 				}
@@ -215,7 +222,7 @@ public class DocumentFacade implements OpenApiFacade{
 	@PUT
 	@Path("/{documentId}/attachment")
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
-	public Response setAttachment(@PathParam("documentId") String documentId, byte[] payload) {
+	public Response setAttachment(@PathParam("documentId") String documentId, @QueryParam("enckeys") String enckeys, byte[] payload) {
 		Response response;
 
 		if (documentId == null) {
@@ -223,6 +230,20 @@ public class DocumentFacade implements OpenApiFacade{
 		}
 		if (payload == null) {
 			return ResponseUtils.badRequest("Cannot add null attachment");
+		}
+
+		if (enckeys != null && enckeys.length()>0) {
+			for (String sfk : enckeys.split(",")) {
+				ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+				UUID uuid = UUID.fromString(sfk);
+				bb.putLong(uuid.getMostSignificantBits());
+				bb.putLong(uuid.getLeastSignificantBits());
+				try {
+					payload = CryptoUtils.encryptAES(payload, bb.array());
+					break; //should always work (no real check on key validity for encryption)
+				} catch (Exception ignored) {
+				}
+			}
 		}
 
 		Document document = documentLogic.get(documentId);
@@ -241,8 +262,8 @@ public class DocumentFacade implements OpenApiFacade{
 	@PUT
 	@Path("/{documentId}/attachment/multipart")
 	@Consumes(MediaType.MULTIPART_FORM_DATA)
-	public Response setAttachmentMulti(@PathParam("documentId") String documentId, @FormDataParam("attachment") byte[] payload) {
-		return setAttachment(documentId, payload);
+	public Response setAttachmentMulti(@PathParam("documentId") String documentId, @QueryParam("enckeys") String enckeys, @FormDataParam("attachment") byte[] payload) {
+		return setAttachment(documentId, enckeys, payload);
 	}
 
 	@ApiOperation(response = DocumentDto.class, value = "Gets a document")
@@ -260,6 +281,26 @@ public class DocumentFacade implements OpenApiFacade{
 			response = ResponseUtils.ok(mapper.map(document, DocumentDto.class));
 		} else {
 			response = ResponseUtils.notFound("Document not found");
+		}
+
+		return response;
+	}
+
+	@ApiOperation(response = DocumentDto.class, responseContainer = "Array", value = "Gets a document")
+	@POST
+	@Path("/batch")
+	public Response getDocuments(@RequestBody ListOfIdsDto documentIds) {
+		Response response;
+
+		if (documentIds == null) {
+			return ResponseUtils.badRequest("Cannot retrieve document: provided document ID is null");
+		}
+
+		List<Document> documents = documentLogic.get(documentIds.getIds());
+		if (documents != null) {
+			response = ResponseUtils.ok(documents.stream().map(doc -> mapper.map(doc, DocumentDto.class)).collect(Collectors.toList()));
+		} else {
+			response = ResponseUtils.notFound("Documents not found");
 		}
 
 		return response;
@@ -296,6 +337,44 @@ public class DocumentFacade implements OpenApiFacade{
 	}
 
 	@ApiOperation(
+			value = "Updates a batch of documents",
+			response = DocumentDto.class,
+			responseContainer = "Array",
+			httpMethod = "PUT",
+			notes = "Returns the modified documents."
+	)
+	@PUT
+	@Path("/batch")
+	public Response modifyDocuments(List<DocumentDto> documentDtos) {
+		Response response;
+
+		if (documentDtos == null) {
+			return ResponseUtils.badRequest("Cannot modify non-existing document");
+		}
+
+		try {
+
+			List<Document> indocs = documentDtos.stream().map(f -> mapper.map(f, Document.class)).collect(Collectors.toList());
+			for(int i = 0; i < documentDtos.size(); i++) {
+				if (documentDtos.get(i).getAttachmentId()!=null) {
+					Document prevDoc = documentLogic.get(indocs.get(i).getId());
+					indocs.get(i).setAttachments(prevDoc.getAttachments());
+
+					if (documentDtos.get(i).getAttachmentId().equals(indocs.get(i).getAttachmentId())) {
+						indocs.get(i).setAttachment(prevDoc.getAttachment());
+					}
+				}
+			}
+
+			List<Document> docs = documentLogic.updateEntities(indocs);
+			return Response.ok().entity(docs.stream().map(f -> mapper.map(f, DocumentDto.class)).collect(Collectors.toList())).build();
+		} catch (Exception e) {
+			logger.warn(e.getMessage(), e);
+			return Response.status(400).type("text/plain").entity(e.getMessage()).build();
+		}
+	}
+
+	@ApiOperation(
 			value = "List documents found By Healthcare Party and secret foreign keys.",
 			response = DocumentDto.class,
 			responseContainer = "Array",
@@ -324,6 +403,38 @@ public class DocumentFacade implements OpenApiFacade{
 	}
 
 	@ApiOperation(
+			value = "List documents found By type, By Healthcare Party and secret foreign keys.",
+			response = DocumentDto.class,
+			responseContainer = "Array",
+			httpMethod = "GET",
+			notes = "Keys must be delimited by coma"
+	)
+	@GET
+	@Path("/byTypeHcPartySecretForeignKeys")
+	public Response findByTypeHCPartyMessageSecretFKeys(@QueryParam("documentTypeCode") String documentTypeCode,
+													@QueryParam("hcPartyId") String hcPartyId,
+													@QueryParam("secretFKeys") String secretFKeys) {
+		DocumentType tmp = DocumentType.fromName(documentTypeCode);
+		if (tmp == null || hcPartyId == null || secretFKeys == null) {
+			return Response.status(400).type("text/plain").entity("A required query parameter was not specified for this request.").build();
+		}
+
+		Set<String> secretMessageKeys = Lists.newArrayList(secretFKeys.split(",")).stream().map(String::trim).collect(Collectors.toSet());
+		List<Document> documentList = documentLogic.findDocumentsByDocumentTypeHCPartySecretMessageKeys(documentTypeCode, hcPartyId, new ArrayList<>(secretMessageKeys));
+
+		boolean succeed = (documentList != null);
+		if (succeed) {
+			// mapping to Dto
+			List<DocumentDto> documentDtoList = documentList.stream().map(document -> mapper.map(document, DocumentDto.class)).collect(Collectors.toList());
+			return Response.ok().entity(documentDtoList).build();
+		} else {
+			return Response.status(500).type("text/plain").entity("Getting Documents failed. Please try again or read the server log.").build();
+		}
+	}
+
+
+
+	@ApiOperation(
 		value = "List documents with no delegation",
 		response = DocumentDto.class,
 		responseContainer = "Array",
@@ -342,6 +453,25 @@ public class DocumentFacade implements OpenApiFacade{
 		} else {
 			return Response.status(500).type("text/plain").entity("Getting Documents failed. Please try again or read the server log.").build();
 		}
+	}
+
+	@ApiOperation(
+			value = "Update delegations in healthElements.",
+			httpMethod = "POST",
+			notes = "Keys must be delimited by coma"
+	)
+	@POST
+	@Path("/delegations")
+	public Response setDocumentsDelegations(List<IcureStubDto> stubs) throws Exception {
+		List<Document> invoices = documentLogic.getDocuments(stubs.stream().map(IcureDto::getId).collect(Collectors.toList()));
+		invoices.forEach(healthElement -> stubs.stream().filter(s -> s.getId().equals(healthElement.getId())).findFirst().ifPresent(stub -> {
+			stub.getDelegations().forEach((s, delegationDtos) -> healthElement.getDelegations().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
+			stub.getEncryptionKeys().forEach((s, delegationDtos) -> healthElement.getEncryptionKeys().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
+			stub.getCryptedForeignKeys().forEach((s, delegationDtos) -> healthElement.getCryptedForeignKeys().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
+		}));
+		documentLogic.updateDocuments(invoices);
+
+		return Response.ok().build();
 	}
 
 	@Context

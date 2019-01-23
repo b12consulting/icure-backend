@@ -52,7 +52,6 @@ public interface ContactLogic extends EntityPersister<Contact, String> {
 
 	Contact modifyContact(Contact contact) throws MissingRequirementsException;
 
-	List<String> findServicesByLabel(String hcPartyId, String patientSecretForeignKey, String label, Long startValueDate, Long endValueDate);
 
 	Service pimpServiceWithContactInformation(Service s, Contact c);
 
@@ -64,7 +63,7 @@ public interface ContactLogic extends EntityPersister<Contact, String> {
 
 	List<Contact> findContactsByHCPartyFormId(String hcPartyId, String formId);
 
-	List<LabelledOccurence> getServiceLabelsOccurences(String hcPartyId, long minOccurences);
+	List<LabelledOccurence> getServiceCodesOccurences(String hcPartyId, String codeType, long minOccurences);
 
 	List<Contact> findContactsByHCPartyFormIds(String hcPartyId, List<String> ids);
 

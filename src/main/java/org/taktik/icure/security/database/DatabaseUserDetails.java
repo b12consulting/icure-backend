@@ -22,6 +22,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.taktik.icure.security.AbstractUserDetails;
 import org.taktik.icure.security.PermissionSetIdentifier;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,6 +35,8 @@ public class DatabaseUserDetails extends AbstractUserDetails {
 	private String application;
 	private String secret;
 	private boolean use2fa;
+	private String groupId;
+	private List<String> groupIdUserIdMatching;
 
 	public DatabaseUserDetails(PermissionSetIdentifier permissionSetIdentifier, Set<GrantedAuthority> authorities, String passwordHash, String secret, Boolean use2fa) {
 		super(permissionSetIdentifier, authorities);
@@ -77,5 +80,21 @@ public class DatabaseUserDetails extends AbstractUserDetails {
 
 	public boolean isUse2fa() {
 		return use2fa;
+	}
+
+	public void setGroupId(String groupId) {
+		this.groupId = groupId;
+	}
+
+	public String getGroupId() {
+		return groupId;
+	}
+
+	public void setGroupIdUserIdMatching(List<String> groupIdUserIdMatching) {
+		this.groupIdUserIdMatching = groupIdUserIdMatching;
+	}
+
+	public List<String> getGroupIdUserIdMatching() {
+		return groupIdUserIdMatching;
 	}
 }

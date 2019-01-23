@@ -41,7 +41,7 @@ import org.taktik.icure.entities.EntityTemplate;
 @View(name = "all", map = "function(doc) { if (doc.java_type == 'org.taktik.icure.entities.EntityTemplate' && !doc.deleted) emit( null, doc._id )}")
 public class EntityTemplateDAOImpl extends CachedDAOImpl<EntityTemplate> implements EntityTemplateDAO {
 	@Autowired
-	public EntityTemplateDAOImpl(@SuppressWarnings("SpringJavaAutowiringInspection") @Qualifier("couchdbHealthdata") CouchDbICureConnector couchdb, IDGenerator idGenerator, @Qualifier("cacheManager") CacheManager cacheManager) {
+	public EntityTemplateDAOImpl(@SuppressWarnings("SpringJavaAutowiringInspection") @Qualifier("couchdbHealthdata") CouchDbICureConnector couchdb, IDGenerator idGenerator, @Qualifier("entitiesCacheManager") CacheManager cacheManager) {
 		super(EntityTemplate.class, couchdb, idGenerator, cacheManager);
 	}
 
@@ -50,6 +50,22 @@ public class EntityTemplateDAOImpl extends CachedDAOImpl<EntityTemplate> impleme
 	public List<EntityTemplate> getByUserIdTypeDescr(String userId, String type, String searchString, Boolean includeEntities) {
 		String descr = (searchString!=null)? StringUtils.sanitizeString(searchString):null;
 		ViewQuery viewQuery = createQuery("by_user_type_descr").startKey(ComplexKey.of(userId, type, descr)).endKey(ComplexKey.of(userId, type, (descr != null ? descr : "") + "\ufff0")).includeDocs(includeEntities==null?false:includeEntities);
+
+		Map<String, EntityTemplate> result = new HashMap<>();
+		db.queryView(viewQuery, EntityTemplate.class).forEach((e)->result.put(e.getId(),e));
+
+		return result.values().stream().sorted((a,b)-> ComparisonChain.start()
+				.compare(a.getUserId(), b.getUserId())
+				.compare(a.getEntityType(),b.getEntityType())
+				.compare(a.getDescr(),b.getDescr())
+				.compare(a.getId(),b.getId()).result()).collect(Collectors.toList());
+	}
+
+	@Override
+	@View(name = "by_type_descr", map = "classpath:js/entitytemplate/By_type_descr.js")
+	public List<EntityTemplate> getByTypeDescr(String type, String searchString, Boolean includeEntities) {
+		String descr = (searchString!=null)? StringUtils.sanitizeString(searchString):null;
+		ViewQuery viewQuery = createQuery("by_type_descr").startKey(ComplexKey.of(type, descr)).endKey(ComplexKey.of(type, (descr != null ? descr : "") + "\ufff0")).includeDocs(includeEntities==null?false:includeEntities);
 
 		Map<String, EntityTemplate> result = new HashMap<>();
 		db.queryView(viewQuery, EntityTemplate.class).forEach((e)->result.put(e.getId(),e));

@@ -18,7 +18,8 @@
 
 package org.taktik.icure.dao.impl;
 
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
+import org.ektorp.UpdateConflictException;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.taktik.icure.dao.Option;
@@ -56,9 +57,11 @@ public abstract class CachedDAOImpl<T extends StoredDocument> extends GenericDAO
 
         // Get cached values
         for (String id : ids) {
-            T value = getFromCache(id);
+            Cache.ValueWrapper value = cache.get(getFullId(id));
             if (value != null) {
-                result.add(value);
+                if (value.get() != null) {
+                    result.add((T) value.get());
+                }
             } else {
                 missingKeys.add(id);
             }
@@ -66,7 +69,7 @@ public abstract class CachedDAOImpl<T extends StoredDocument> extends GenericDAO
 
         // Get missing values from storage
         if (!missingKeys.isEmpty()) {
-            List<T> entities = super.getList(ids).stream().filter(Objects::nonNull).collect(Collectors.toList());
+            List<T> entities = super.getList(missingKeys).stream().filter(Objects::nonNull).collect(Collectors.toList());
             for (T e : entities) {
                 cache.put(getFullId(keyManager.getKey(e)), e);
             }
@@ -77,14 +80,13 @@ public abstract class CachedDAOImpl<T extends StoredDocument> extends GenericDAO
 
     @Override
     public T get(String id, Option... options) {
-        T value = getFromCache(id);
+        Cache.ValueWrapper value = cache.get(getFullId(id));
         if (value == null) {
-            value = super.get(id, options);
-            if (value != null) {
-                cache.put(getFullId(id), value);
-            }
+            T res = super.get(id, options);
+            cache.put(getFullId(id), res);
+            return res;
         }
-        return value;
+        return (T) value.get();
     }
 
 	public T getFromCache(String id) {
@@ -127,7 +129,14 @@ public abstract class CachedDAOImpl<T extends StoredDocument> extends GenericDAO
 
     @Override
     protected T save(Boolean newEntity, T entity) {
-        entity = super.save(newEntity, entity);
+        try {
+            entity = super.save(newEntity, entity);
+        } catch (UpdateConflictException e) {
+            cache.evict(getFullId(keyManager.getKey(entity)));
+            cache.evict(getFullId(ALL_ENTITIES_CACHE_KEY));
+
+            throw e;
+        }
 		putInCache(keyManager.getKey(entity), entity);
         cache.evict(getFullId(ALL_ENTITIES_CACHE_KEY));
 
@@ -183,7 +192,16 @@ public abstract class CachedDAOImpl<T extends StoredDocument> extends GenericDAO
 
     @Override
     protected <K extends Collection<T>> K save(Boolean newEntity, K entities) {
-        entities = super.save(newEntity, entities);
+        try {
+            entities = super.save(newEntity, entities);
+        } catch (UpdateConflictException e) {
+            for (T entity:entities) {
+                cache.evict(getFullId(keyManager.getKey(entity)));
+            }
+            cache.evict(getFullId(ALL_ENTITIES_CACHE_KEY));
+
+            throw e;
+        }
         for (T entity:entities) {
 			putInCache(keyManager.getKey(entity), entity);
         }

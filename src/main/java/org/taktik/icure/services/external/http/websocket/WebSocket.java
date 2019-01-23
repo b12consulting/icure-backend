@@ -18,26 +18,19 @@
 
 package org.taktik.icure.services.external.http.websocket;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.Executor;
-
-import javax.servlet.http.HttpSession;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketAdapter;
-import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.taktik.icure.logic.SessionLogic;
 import org.taktik.icure.logic.SessionLogic.SessionContext;
 import org.taktik.icure.services.external.http.WebSocketServlet;
-import org.taktik.icure.services.external.rest.v1.dto.be.ehealth.kmehr.v20100601.org.w3.xmldsig.Object;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.Executor;
 
 public class WebSocket extends WebSocketAdapter {
 	private SessionContext sessionContext;
@@ -64,7 +57,6 @@ public class WebSocket extends WebSocketAdapter {
 
 	@Override
 	public void onWebSocketText(String message) {
-		System.out.println("Received TEXT message: " + message);
 		if (operation == null) {
 			JsonParser parser = new JsonParser();
 			JsonObject parameters = parser.parse(message).getAsJsonObject().get("parameters").getAsJsonObject();

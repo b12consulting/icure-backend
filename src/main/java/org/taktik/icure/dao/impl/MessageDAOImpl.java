@@ -35,7 +35,6 @@ import org.taktik.icure.dao.impl.idgenerators.IDGenerator;
 import org.taktik.icure.dao.impl.ektorp.CouchDbICureConnector;
 import org.taktik.icure.db.PaginatedList;
 import org.taktik.icure.db.PaginationOffset;
-import org.taktik.icure.entities.Document;
 import org.taktik.icure.entities.Message;
 
 @Repository("messageDAO")
@@ -89,7 +88,7 @@ public class MessageDAOImpl extends GenericIcureDAOImpl<Message> implements Mess
 	public PaginatedList<Message> findByFromAddress(String partyId, String fromAddress, PaginationOffset<List<Object>> paginationOffset) {
 		ComplexKey startKey = paginationOffset.getStartKey() == null ? ComplexKey.of(partyId, fromAddress, null) : ComplexKey.of(paginationOffset.getStartKey().toArray());
 		ComplexKey endKey = ComplexKey.of(startKey.getComponents().get(0),startKey.getComponents().get(1),ComplexKey.emptyObject());
-		return pagedQueryView("by_hcparty_from_address", startKey, endKey, paginationOffset, true);
+		return pagedQueryView("by_hcparty_from_address", startKey, endKey, paginationOffset, false);
 	}
 
 	@Override
@@ -98,11 +97,11 @@ public class MessageDAOImpl extends GenericIcureDAOImpl<Message> implements Mess
 		if (reverse==null) { reverse=false; }
 		ComplexKey startKey = paginationOffset.getStartKey() == null ? ComplexKey.of(partyId, toAddress, null) : ComplexKey.of(paginationOffset.getStartKey().toArray());
 		ComplexKey endKey = ComplexKey.of(partyId, toAddress, reverse?null:ComplexKey.emptyObject());
-		return pagedQueryView("by_hcparty_to_address", startKey, endKey, paginationOffset, true, reverse);
+		return pagedQueryView("by_hcparty_to_address", startKey, endKey, paginationOffset, reverse);
 	}
 
 	@Override
-	@View(name = "by_hcparty_transport_guid_received", map = "classpath:js/message/By_hcparty_transport_guid_received_map.js")
+	@View(name = "by_hcparty_transport_guid", map = "classpath:js/message/By_hcparty_transport_guid_map.js")
 	public PaginatedList<Message> findByTransportGuid(String partyId, String transportGuid, PaginationOffset<List<Object>> paginationOffset) {
 		ComplexKey startKey;
 		ComplexKey endKey;
@@ -115,7 +114,35 @@ public class MessageDAOImpl extends GenericIcureDAOImpl<Message> implements Mess
 			endKey = ComplexKey.of(partyId, transportGuid, ComplexKey.emptyObject());
 		}
 
-		return pagedQueryView("by_hcparty_transport_guid_received", startKey, endKey, paginationOffset, true);
+		return pagedQueryView("by_hcparty_transport_guid_received", startKey, endKey, paginationOffset, false);
+	}
+
+	@Override
+	@View(name = "by_hcparty_transport_guid_received", map = "classpath:js/message/By_hcparty_transport_guid_received_map.js")
+	public PaginatedList<Message> findByTransportGuidReceived(String partyId, String transportGuid, PaginationOffset<List<Object>> paginationOffset) {
+		ComplexKey startKey;
+		ComplexKey endKey;
+		if (transportGuid != null && transportGuid.endsWith(":*")) {
+			String prefix = transportGuid.substring(0, transportGuid.length() - 1);
+			startKey = paginationOffset.getStartKey() == null ? ComplexKey.of(partyId, prefix, null) : ComplexKey.of(paginationOffset.getStartKey().toArray());
+			endKey = ComplexKey.of(partyId, prefix + "\ufff0", ComplexKey.emptyObject());
+		} else {
+			startKey = paginationOffset.getStartKey() == null ? ComplexKey.of(partyId, transportGuid, null) : ComplexKey.of(paginationOffset.getStartKey().toArray());
+			endKey = ComplexKey.of(partyId, transportGuid, ComplexKey.emptyObject());
+		}
+
+		return pagedQueryView("by_hcparty_transport_guid_received", startKey, endKey, paginationOffset, false);
+	}
+
+	@Override
+	@View(name = "by_hcparty_transport_guid_sent_date", map = "classpath:js/message/By_hcparty_transport_guid_sent_date.js")
+	public PaginatedList<Message> findByTransportGuidSentDate(String partyId, String transportGuid, Long fromDate, Long toDate, PaginationOffset<List<Object>> paginationOffset) {
+		ComplexKey startKey;
+		ComplexKey endKey;
+		startKey = paginationOffset.getStartKey() == null ? ComplexKey.of(partyId, transportGuid, fromDate) : ComplexKey.of(paginationOffset.getStartKey().toArray());
+		endKey = ComplexKey.of(partyId, transportGuid, toDate);
+
+		return pagedQueryView("by_hcparty_transport_guid_sent_date", startKey, endKey, paginationOffset, false);
 	}
 
 	@Override
@@ -123,7 +150,7 @@ public class MessageDAOImpl extends GenericIcureDAOImpl<Message> implements Mess
 	public PaginatedList<Message> findByHcParty(String partyId, PaginationOffset<List<Object>> paginationOffset) {
 		ComplexKey startKey = paginationOffset.getStartKey() == null ? ComplexKey.of(partyId, null) : ComplexKey.of(paginationOffset.getStartKey().toArray());
 		ComplexKey endKey = ComplexKey.of(startKey.getComponents().get(0),ComplexKey.emptyObject());
-		return pagedQueryView("by_hcparty", startKey, endKey, paginationOffset, true);
+		return pagedQueryView("by_hcparty", startKey, endKey, paginationOffset, false);
 	}
 
 	@Override
@@ -142,6 +169,16 @@ public class MessageDAOImpl extends GenericIcureDAOImpl<Message> implements Mess
 	@View(name = "by_parent_id", map = "classpath:js/message/By_parent_id_map.js")
 	public List<Message> getChildren(String messageId) {
 		return queryView("by_parent_id", messageId);
+	}
+
+	@Override
+	public List<List<Message>> getChildren(List<String> parentIds) {
+
+		List<Message> byParentId = queryResults(createQuery("by_parent_id")
+				.includeDocs(true)
+				.keys(parentIds));
+
+		return parentIds.stream().map(id -> byParentId.stream().filter(c -> c.getParentId().equals(id)).collect(Collectors.toList())).collect(Collectors.toList());
 	}
 
 	@Override
@@ -167,5 +204,6 @@ public class MessageDAOImpl extends GenericIcureDAOImpl<Message> implements Mess
 	public List<Message> listConflicts() {
 		return queryView("conflicts");
 	}
+
 
 }

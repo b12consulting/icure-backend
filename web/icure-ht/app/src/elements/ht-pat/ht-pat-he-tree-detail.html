@@ -247,7 +247,7 @@
                     <template is="dom-if" if="[[he.colour]]">
                         <label class$="colour-code [[he.colour]]"><span></span></label>
                     </template>
-                    [[getIcpc(he)]] [[he.descr]]
+                    [[getIcpc(he)]] <i>[[_shortDateFormat(he.openingDate, he.valueDate)]]</i>: [[he.descr]]
                 </div>
                 <div>
                     <div class="he-edit-btn-container">
@@ -266,6 +266,10 @@
                             <paper-icon-button id="he-edit-btn-history_[[getHeId(he)]]" class="he-edit-btn" icon="assignment-return" on-tap="_inactivate"></paper-icon-button>
                             <paper-tooltip position="top" for="he-edit-btn-history_[[getHeId(he)]]">[[localize('add_to_his','Add to History',language)]]</paper-tooltip>
                         </template>
+
+                        <paper-icon-button id="he-edit-btn-evlink_[[getHeId(he)]]" class="he-edit-btn" on-tap="_linkToEvidenceLinker" icon="vaadin:open-book"></paper-icon-button>
+                        <paper-tooltip position="top" for="he-edit-btn-evlink_[[getHeId(he)]]">[[localize('adm_ebm','ebmPracticeNet',language)]]</paper-tooltip>
+
                     </div>
                     <paper-icon-button class="menu-item-icon" icon="hardware:keyboard-arrow-down" on-tap="toggleMenu"></paper-icon-button>
                 </div>
@@ -290,7 +294,7 @@
 
 import styx from '../../../scripts/styx';
 
-class HtPatHeTreeDetail extends Polymer.TkLocalizerMixin(Polymer.mixinBehaviors([], Polymer.Element)) {
+class HtPatHeTreeDetail extends Polymer.TkLocalizerMixin(Polymer.Element) {
     static get is() {
         return 'ht-pat-he-tree-detail';
     }
@@ -376,11 +380,32 @@ class HtPatHeTreeDetail extends Polymer.TkLocalizerMixin(Polymer.mixinBehaviors(
         this.dispatchEvent(new CustomEvent('inactivate-he', { detail: { he: this.he } }));
     }
 
+    _linkToEvidenceLinker(e){
+        e.stopPropagation();
+        e.preventDefault();
+
+        const he = this.he;
+
+        const icpcCode = he && he.codes && he.codes.find(c => c.type === "ICPC")
+
+        icpcCode && icpcCode.code ? window.open("https://www.evidencelinker.be/"+this.language+"/Pages/evdresult.aspx?k=elicpc:"+icpcCode.code) : window.open("https://www.evidencelinker.be/"+this.language+"/Pages/evdresult.aspx?term="+he.descr)
+
+
+    }
+
     _addApproach(e) {}
 
     getIcpc(he) {
         const icpc = he.codes && he.codes.find(t=>t.type==='ICPC' || t.type==='ICPC2')
         return icpc && ((icpc.code || icpc.id.split('|')[1]) + ' - ')
+    }
+
+    _shortDateFormat(date, altDate) {
+        return (date || altDate) && "'"+this.api.moment((date || altDate)).format('YY') || '';
+    }
+
+    _evidenceLinkerPicture(){
+        return require('../../../images/evidencelinkerlogo.png')
     }
 
     select(e) {

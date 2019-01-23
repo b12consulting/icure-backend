@@ -22,8 +22,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.base.Joiner;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
+import org.taktik.icure.entities.base.Code;
 
 import java.io.Serializable;
 import java.util.List;
@@ -45,17 +46,43 @@ public class Medication implements Serializable {
 
 	String instructionForPatient;
 	String commentForDelivery;
+	String drugRoute; //CD-DRUG-ROUTE
+	String temporality; //CD-TEMPORALITY : chronic, acute, oneshot
+	Code frequency; //CD-PERIODICITY
+	Code reimbursementReason;
+	Boolean substitutionAllowed;
 
 	Long beginMoment;
 	Long endMoment;
 
 	Duration duration;
+	Renewal renewal;
 
 	Boolean knownUsage;
 
 	List<RegimenItem> regimen;
+	String posology; // replace structured posology by text
 
 	Map<String, Content> options;
+	Map<String, ParagraphAgreement> agreements;
+
+	String medicationSchemeIdOnSafe;
+	Integer medicationSchemeSafeVersion;
+	Long medicationSchemeTimeStampOnSafe;
+	String medicationSchemeDocumentId;
+	String safeIdName; //can be: vitalinkuri, RSWID, RSBID
+	String idOnSafes; //medicationschemeelement : value of vitalinkuri, RSBID, RSWID
+	Long timestampOnSafe; //transaction date+time
+	Boolean changeValidated; //accept change on safe
+	Boolean newSafeMedication; //new medication on safe
+	String medicationUse; //free text
+	String beginCondition; //free text
+	String endCondition; //free text
+	String origin; // regularprocess, recorded
+	Boolean medicationChanged;
+	Boolean posologyChanged;
+
+	String prescriptionRID;
 
 	public Map<String, Content> getOptions() {
 		return options;
@@ -113,6 +140,14 @@ public class Medication implements Serializable {
 		this.commentForDelivery = commentForDelivery;
 	}
 
+	public @Nullable String getDrugRoute() { return drugRoute; }
+
+	public void setDrugRoute(String drugRoute) { this.drugRoute = drugRoute; }
+
+	public @Nullable String getTemporality() { return temporality; }
+
+	public void setTemporality(String temporality) { this.temporality = temporality; }
+
 	public @Nullable Long getBeginMoment() {
 		return beginMoment;
 	}
@@ -136,6 +171,10 @@ public class Medication implements Serializable {
 	public void setRegimen(List<RegimenItem> regimen) {
 		this.regimen = regimen;
 	}
+
+	public @Nullable String getPosology() { return posology; }
+
+	public void setPosology(String posology) { this.posology = posology; }
 
 	public @Nullable Substanceproduct getSubstanceProduct() {
 		return substanceProduct;
@@ -161,8 +200,96 @@ public class Medication implements Serializable {
 		this.duration = duration;
 	}
 
+	public Map<String, ParagraphAgreement> getAgreements() {
+		return agreements;
+	}
+
+	public void setAgreements(Map<String, ParagraphAgreement> agreements) {
+		this.agreements = agreements;
+	}
+
+	public @Nullable String getMedicationSchemeIdOnSafe() { return medicationSchemeIdOnSafe; }
+
+	public void setMedicationSchemeIdOnSafe(String medicationSchemeIdOnSafe) { this.medicationSchemeIdOnSafe = medicationSchemeIdOnSafe; }
+
+	public @Nullable Integer getMedicationSchemeSafeVersion() { return medicationSchemeSafeVersion; }
+
+	public void setMedicationSchemeSafeVersion(Integer medicationSchemeSafeVersion) { this.medicationSchemeSafeVersion = medicationSchemeSafeVersion; }
+
+	public @Nullable Long getMedicationSchemeTimeStampOnSafe() { return medicationSchemeTimeStampOnSafe; }
+
+	public void setMedicationSchemeTimeStampOnSafe(Long medicationSchemeTimeStampOnSafe) { this.medicationSchemeTimeStampOnSafe = medicationSchemeTimeStampOnSafe; }
+
+	public @Nullable Boolean getChangeValidated() { return changeValidated; }
+
+	public void setChangeValidated(Boolean changeValidated) { this.changeValidated = changeValidated; }
+
+	public @Nullable Boolean getNewSafeMedication() { return newSafeMedication; }
+
+	public void setNewSafeMedication(Boolean newSafeMedication) { this.newSafeMedication = newSafeMedication; }
+
+	public @Nullable String getMedicationSchemeDocumentId() { return medicationSchemeDocumentId; }
+
+	public void setMedicationSchemeDocumentId(String medicationSchemeDocumentId) { this.medicationSchemeDocumentId = medicationSchemeDocumentId; }
+
+	public @Nullable String getSafeIdName() { return safeIdName; }
+
+	public void setSafeIdName(String safeIdName) { this.safeIdName = safeIdName; }
+
+	public @Nullable String getIdOnSafes() { return idOnSafes; }
+
+	public void setIdOnSafes(String idOnSafes) { this.idOnSafes = idOnSafes; }
+
+	public @Nullable Long getTimestampOnSafe() { return timestampOnSafe; }
+
+	public void setTimestampOnSafe(Long timestampOnSafe) { this.timestampOnSafe = timestampOnSafe; }
+
+	public @Nullable String getMedicationUse() { return medicationUse; }
+
+	public void setMedicationUse(String medicationUse) { this.medicationUse = medicationUse; }
+
+	public @Nullable String getBeginCondition() { return beginCondition; }
+
+	public void setBeginCondition(String beginCondition) { this.beginCondition = beginCondition; }
+
+	public @Nullable String getEndCondition() { return endCondition; }
+
+	public void setEndCondition(String endCondition) { this.endCondition = endCondition; }
+
+	public @Nullable String getOrigin() { return origin; }
+
+	public void setOrigin(String origin) { this.origin = origin; }
+
+	public @Nullable Boolean getMedicationChanged() { return medicationChanged; }
+
+	public void setMedicationChanged(Boolean medicationChanged) { this.medicationChanged = medicationChanged; }
+
+	public @Nullable Boolean getPosologyChanged() { return posologyChanged; }
+
+	public void setPosologyChanged(Boolean posologyChanged) { this.posologyChanged = posologyChanged; }
+
+	public @Nullable String getPrescriptionRID() { return prescriptionRID; }
+
+	public void setPrescriptionRID(String prescriptionRID) { this.prescriptionRID = prescriptionRID; }
+
+	public Boolean getSubstitutionAllowed() { return substitutionAllowed; }
+
+	public void setSubstitutionAllowed(Boolean substitutionAllowed) { this.substitutionAllowed = substitutionAllowed; }
+
+	public Code getFrequency() { return frequency; }
+
+	public void setFrequency(Code frequency) { this.frequency = frequency; }
+
+	public Code getReimbursementReason() { return reimbursementReason; }
+
+	public void setReimbursementReason(Code reimbursementReason) { this.reimbursementReason = reimbursementReason; }
+
+	public Renewal getRenewal() { return renewal; }
+
+	public void setRenewal(Renewal renewal) { this.renewal = renewal; }
+
 	public String toString() {
-		String result = String.format("%s, %s", this.compoundPrescription!=null?this.compoundPrescription:this.substanceProduct!=null?this.substanceProduct:this.medicinalProduct, getPosology());
+		String result = String.format("%s, %s", this.compoundPrescription!=null?this.compoundPrescription:this.substanceProduct!=null?this.substanceProduct:this.medicinalProduct, getPosologyText());
 		if (this.numberOfPackages != null && this.numberOfPackages>0) {
 			result = String.format("%s packages of %s",this.numberOfPackages,result);
 		}
@@ -171,10 +298,11 @@ public class Medication implements Serializable {
 		}
 		return result;
 	}
+
 	@JsonIgnore
-	public @Nullable String getPosology() {
-		if (!StringUtils.isEmpty(instructionForPatient) || regimen == null || regimen.size()==0) {
-			return this.instructionForPatient;
+	public @Nullable String getPosologyText() {
+		if (regimen == null || regimen.size()==0) {
+			return this.posology;
 		}
 
 		String unit = regimen.get(0).getAdministratedQuantity() == null ? null: regimen.get(0).getAdministratedQuantity().getAdministrationUnit() != null ? regimen.get(0).getAdministratedQuantity().getAdministrationUnit().getCode() : regimen.get(0).getAdministratedQuantity().getUnit();
@@ -193,6 +321,14 @@ public class Medication implements Serializable {
 		}
 
 		return String.format("%s, %d x %s, %s",quantity == null || quantity == -1 ? "x" : quantity.toString(), regimen.size(), "daily", Joiner.on(", ").skipNulls().join(regimen.stream().map(RegimenItem::toString).collect(Collectors.toList())));
+	}
 
+	@JsonIgnore
+	public @Nullable String getFullPosologyText() {
+		String poso = getPosologyText();
+		if(this.instructionForPatient != null && !StringUtils.isEmpty(this.instructionForPatient)) {
+			poso = poso + ". " + this.instructionForPatient;
+		}
+		return poso;
 	}
 }

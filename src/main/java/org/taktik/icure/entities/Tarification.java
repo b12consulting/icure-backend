@@ -21,9 +21,12 @@ package org.taktik.icure.entities;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.taktik.icure.entities.base.Code;
+import org.taktik.icure.entities.embed.LetterValue;
 import org.taktik.icure.entities.embed.Valorisation;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -32,6 +35,11 @@ public class Tarification extends Code {
 	Set<Valorisation> valorisations;
 	Map<String,String> category;
 	Boolean	consultationCode;
+	Boolean hasRelatedCode;
+	Boolean needsPrescriber;
+	Set<String> relatedCodes;
+	String nGroup;
+	List<LetterValue> letterValues;
 
 	public Tarification() {
 	}
@@ -78,5 +86,66 @@ public class Tarification extends Code {
 
 	public void setConsultationCode(Boolean consultationCode) {
 		this.consultationCode = consultationCode;
+	}
+
+	public Boolean getHasRelatedCode() {
+		return hasRelatedCode;
+	}
+
+	public void setHasRelatedCode(Boolean hasRelatedCode) {
+		this.hasRelatedCode = hasRelatedCode;
+	}
+
+	public Boolean getNeedsPrescriber() {
+		return needsPrescriber;
+	}
+
+	public void setNeedsPrescriber(Boolean needsPrescriber) {
+		this.needsPrescriber = needsPrescriber;
+	}
+
+	public Set<String> getRelatedCodes() {
+		return relatedCodes;
+	}
+
+	public void setRelatedCodes(Set<String> relatedCodes) {
+		this.relatedCodes = relatedCodes;
+	}
+
+	public String getnGroup() {
+		return nGroup;
+	}
+
+	public void setnGroup(String nGroup) {
+		this.nGroup = nGroup;
+	}
+
+	public List<LetterValue> getLetterValues() {
+		return letterValues;
+	}
+
+	public void setLetterValues(List<LetterValue> letterValues) {
+		this.letterValues = letterValues;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		if (!super.equals(o)) return false;
+		Tarification that = (Tarification) o;
+		return Objects.equals(valorisations, that.valorisations) &&
+				Objects.equals(category, that.category) &&
+				Objects.equals(consultationCode, that.consultationCode) &&
+				Objects.equals(hasRelatedCode, that.hasRelatedCode) &&
+				Objects.equals(needsPrescriber, that.needsPrescriber) &&
+				Objects.equals(relatedCodes, that.relatedCodes) &&
+				Objects.equals(nGroup, that.nGroup) &&
+				Objects.equals(letterValues, that.letterValues);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(super.hashCode(), valorisations, category, consultationCode, hasRelatedCode, needsPrescriber, relatedCodes, nGroup, letterValues);
 	}
 }

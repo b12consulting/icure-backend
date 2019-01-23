@@ -21,25 +21,31 @@ package org.taktik.icure.dao.impl;
 import org.ektorp.ComplexKey;
 import org.ektorp.ViewQuery;
 import org.ektorp.support.View;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 import org.taktik.icure.dao.PatientDAO;
-import org.taktik.icure.dao.impl.idgenerators.IDGenerator;
 import org.taktik.icure.dao.impl.ektorp.CouchDbICureConnector;
-import org.taktik.icure.db.StringUtils;
-import org.taktik.icure.entities.Patient;
+import org.taktik.icure.dao.impl.idgenerators.IDGenerator;
 import org.taktik.icure.db.PaginatedList;
 import org.taktik.icure.db.PaginationOffset;
+import org.taktik.icure.db.StringUtils;
+import org.taktik.icure.entities.Patient;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Repository("patientDAO")
 @View(name = "all", map = "function(doc) { if (doc.java_type == 'org.taktik.icure.entities.Patient' && !doc.deleted) emit(doc._id )}")
 class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO {
+	private static final Logger log = LoggerFactory.getLogger(PatientDAOImpl.class);
 
-    @Autowired
+	@Autowired
     public PatientDAOImpl(@SuppressWarnings("SpringJavaAutowiringInspection") @Qualifier("couchdbPatient") CouchDbICureConnector couchdb, IDGenerator idGenerator) {
         super(Patient.class, couchdb, idGenerator);
         initStandardDesignDocument();
@@ -67,6 +73,12 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 	@View(name = "of_hcparty_ssin", map = "classpath:js/patient/Of_hcparty_ssin_map.js", reduce = "function(keys, values, rereduce) {if (rereduce) {return sum(values);} else {return values.length;}}")
 	public List<String> listIdsOfHcPartyAndSsin(String ssin, String healthcarePartyId) {
 		return listIdsForSsin(ssin, healthcarePartyId, "of_hcparty_ssin");
+	}
+
+	@Override
+	@View(name = "by_hcparty_active", map = "classpath:js/patient/By_hcparty_active.js", reduce = "function(keys, values, rereduce) {if (rereduce) {return sum(values);} else {return values.length;}}")
+	public List<String> listIdsByActive(boolean active, String healthcarePartyId) {
+		return listIdsForActive(active, healthcarePartyId, "by_hcparty_active");
 	}
 
 	@Override
@@ -175,6 +187,13 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 		ViewQuery viewQuery = createQuery(viewName).reduce(false).keys(ssins.stream().map(ssin->ComplexKey.of(healthcarePartyId,ssin)).collect(Collectors.toList())).includeDocs(false);
 		return db.queryView(viewQuery, String.class);
 	}
+
+	private List<String> listIdsForActive(boolean active, String healthcarePartyId, String viewName) {
+		ComplexKey onlyKey = ComplexKey.of(healthcarePartyId, active ? 1 : 0);
+		ViewQuery viewQuery = createQuery(viewName).reduce(false).startKey(onlyKey).endKey(onlyKey).includeDocs(false);
+		return db.queryView(viewQuery,String.class);
+	}
+
 	@Override
 	@View(name = "by_hcparty_externalid", map = "classpath:js/patient/By_hcparty_externalid_map.js")
 	public List<String> listIdsByHcPartyAndExternalId(String externalId, String healthcarePartyId) {
@@ -194,6 +213,11 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 		ViewQuery viewQuery = createQuery("by_hcparty_externalid").startKey(startKey).endKey(endKey).includeDocs(false);
 
 		return db.queryView(viewQuery, String.class);
+	}
+
+	@Override
+	public PaginatedList<String> findIdsByHcParty(String healthcarePartyId, PaginationOffset pagination) {
+		return pagedQueryViewOfIds("by_hcparty_name", ComplexKey.of(healthcarePartyId, null),ComplexKey.of(healthcarePartyId, ComplexKey.emptyObject()), pagination);
 	}
 
 	@Override
@@ -254,7 +278,7 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 			startKey = pagination.getStartKey() == null ? ComplexKey.of(healthcarePartyId, name + startKeyNameKeySuffix) : ComplexKey.of((Object[]) pagination.getStartKey());
 			endKey = ComplexKey.of(healthcarePartyId, name + endKeyNameKeySuffix);
 		}
-		return pagedQueryView(viewName, startKey, endKey, pagination, true, descending);
+		return pagedQueryView(viewName, startKey, endKey, pagination, descending);
 	}
 
 	private PaginatedList<Patient> findBySsin(String ssin, String healthcarePartyId, PaginationOffset pagination, boolean descending, String viewName) {
@@ -272,7 +296,7 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 			startKey = pagination.getStartKey() == null ? ComplexKey.of(healthcarePartyId, ssinSearchString + startKeyNameKeySuffix) : ComplexKey.of((Object[]) pagination.getStartKey());
 			endKey = ComplexKey.of(healthcarePartyId, ssinSearchString + endKeyNameKeySuffix);
 		}
-		return pagedQueryView(viewName, startKey, endKey, pagination, true, descending);
+		return pagedQueryView(viewName, startKey, endKey, pagination, descending);
 	}
 
 	private PaginatedList<Patient> findByDateOfBirth(Integer startDate, Integer endDate, String healthcarePartyId, PaginationOffset pagination, boolean descending, String viewName) {
@@ -292,7 +316,7 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 		//If both keys are null, search for null
 		ComplexKey to = ComplexKey.of(healthcarePartyId, (startKeyStartDate == null && endKeyEndDate == null) ? null : endKeyEndDate == null ? largestKey : endKeyEndDate);
 
-		return pagedQueryView(viewName, from, to, pagination, true, descending);
+		return pagedQueryView(viewName, from, to, pagination, descending);
 	}
 
 	private PaginatedList<Patient> findByModificationDate(Long startDate, Long endDate, String healthcarePartyId, PaginationOffset pagination, boolean descending, String viewName) {
@@ -310,7 +334,7 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 
 		ComplexKey to = ComplexKey.of(healthcarePartyId, endKeyEndDate == null ? largestKey : endKeyEndDate);
 
-		return pagedQueryView(viewName, from, to, pagination, true, descending);
+		return pagedQueryView(viewName, from, to, pagination, descending);
 	}
 	@Override
 	@View(name = "by_user_id", map = "function(doc) { if (doc.java_type == 'org.taktik.icure.entities.Patient' && !doc.deleted && doc.userId) emit( doc.userId, doc._id )}")
@@ -339,7 +363,7 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 			"    }\n" +
 			"}")
 	public PaginatedList<Patient> findDeletedPatientsByDeleteDate(Long start, Long end, boolean descending, PaginationOffset paginationOffset) {
-    	return pagedQueryView("deleted_by_delete_date", start, end, paginationOffset, true, descending);
+    	return pagedQueryView("deleted_by_delete_date", start, end, paginationOffset, descending);
 	}
 
 	@Override
@@ -382,11 +406,21 @@ class PatientDAOImpl extends GenericIcureDAOImpl<Patient> implements PatientDAO 
 	@Override
 	@View(name = "by_modification_date", map = "function(doc) { if (doc.java_type == 'org.taktik.icure.entities.Patient' && doc.modified) emit(doc.modified)}")
 	public PaginatedList<Patient> listOfPatientsModifiedAfter(Long date, PaginationOffset<Long> paginationOffset) {
-		return pagedQueryView("by_modification_date", paginationOffset.getStartKey(), Long.MAX_VALUE, paginationOffset, true, false);
+		return pagedQueryView("by_modification_date", date, Long.MAX_VALUE, paginationOffset, false);
 	}
 
 	@Override
 	public List<String> listIdsByHcPartyAndSsins(Collection<String> ssins, String healthcarePartyId) {
 		return listIdsForSsins(ssins, healthcarePartyId, "by_hcparty_ssin");
 	}
+
+    @Override
+    @View(name = "by_hcparty_contains_name_delegate", map = "classpath:js/patient/By_hcparty_contains_name_delegate.js")
+    public List<String> listByHcPartyName(String searchString, String healthcarePartyId) {
+        String name = (searchString!=null)? StringUtils.sanitizeString(searchString):null;
+        ViewQuery viewQuery = createQuery("by_hcparty_contains_name_delegate")
+            .startKey(ComplexKey.of(healthcarePartyId, name))
+            .endKey(ComplexKey.of(healthcarePartyId, name == null ? ComplexKey.emptyObject() : name + "\ufff0")).includeDocs(false);
+        return new ArrayList<>(new TreeSet<>(db.queryView(viewQuery, String.class)));
+    }
 }

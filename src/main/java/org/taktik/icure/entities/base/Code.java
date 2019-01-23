@@ -33,7 +33,7 @@ import java.util.Set;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Code extends StoredDocument {
+public class Code extends StoredDocument implements CodeIdentification {
 	private static final long serialVersionUID = 1L;
 	public static final Map<String,String> versionsMap = ImmutableMap.of(
 			"INAMI-RIZIV", "1.0"
@@ -51,7 +51,10 @@ public class Code extends StoredDocument {
 
     protected java.util.Map<String, String> label; //ex: {en: Rheumatic Aortic Stenosis, fr: Sténose rhumatoïde de l'Aorte}
 
-    protected List<String> links; //Links towards related codes
+	@Deprecated
+    protected List<String> links; //Links towards related codes (corresponds to an approximate link in qualifiedLinks)
+
+	protected Map<LinkQualification, List<String>> qualifiedLinks; //Links towards related codes
     protected Set<CodeFlag> flags; //flags (like female only) for the code
     protected java.util.Map<String, Set<String>> searchTerms; //Extra search terms/ language
 
@@ -194,6 +197,14 @@ public class Code extends StoredDocument {
         this.links = links;
     }
 
+	public Map<LinkQualification, List<String>> getQualifiedLinks() {
+		return qualifiedLinks;
+	}
+
+	public void setQualifiedLinks(Map<LinkQualification, List<String>> qualifiedLinks) {
+		this.qualifiedLinks = qualifiedLinks;
+	}
+
 	public String getData() {
 		return data;
 	}
@@ -203,17 +214,18 @@ public class Code extends StoredDocument {
 	}
 
 	@Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Code code1 = (Code) o;
-        return  Objects.equals(type, code1.type) &&
-                Objects.equals(code, code1.code) &&
-                Objects.equals(version, code1.version);
-    }
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (!(o instanceof Code)) return false;
+		if (!super.equals(o)) return false;
+		Code code1 = (Code) o;
+		return Objects.equals(type, code1.type) &&
+				Objects.equals(code, code1.code) &&
+				Objects.equals(version, code1.version);
+	}
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(regions, type, code, version, level);
-    }
+	@Override
+	public int hashCode() {
+		return Objects.hash(super.hashCode(), type, code, version);
+	}
 }

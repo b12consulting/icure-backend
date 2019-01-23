@@ -4,7 +4,6 @@
 <link rel="import" href="../../../bower_components/vaadin-material-theme/vaadin-grid.html">
 <link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid.html">
 
-<link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid.html">
 <link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid-column.html">
 <link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid-sorter.html">
 <link rel="import" href="../../../bower_components/vaadin-themes/material/vaadin-date-picker.html">
@@ -28,13 +27,14 @@
             }
 
            vaadin-grid{
-                height: unset;
+                /*height: unset;*/
 				max-height:calc(100% - 104px);
 				margin: 32px 32px 0;
 				box-shadow: var(--app-shadow-elevation-1);
 				border: none;
                 border-radius: 3px;
-                overflow-y: scroll;
+                overflow-y: auto;
+               flex-grow: 1;
 			}
 
 
@@ -78,7 +78,7 @@
     </template>
     <script>
 
-class HtPatDetailTable extends Polymer.TkLocalizerMixin(Polymer.mixinBehaviors([], Polymer.Element)) {
+class HtPatDetailTable extends Polymer.TkLocalizerMixin(Polymer.Element) {
     static get is() {
         return 'ht-pat-detail-table';
     }
@@ -142,6 +142,8 @@ class HtPatDetailTable extends Polymer.TkLocalizerMixin(Polymer.mixinBehaviors([
     _updateTable(contacts) {
         const services = _.sortBy(_.flatMap(contacts, c => c.services.filter(s => this.api.contact().isNumeric(s, this.language) && !s.endOfLife)), ['modified']);
         const datesServices = services.reduce((acc, s) => {
+            s.modified = s.modified ? s.modified : new Date().getTime();
+            s.created = s.created ? s.created : new Date().getTime();
             (acc[s.modified || s.created] || (acc[s.modified || s.created] = [])).push(s);
             return acc;
         }, {});

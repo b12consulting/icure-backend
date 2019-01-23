@@ -51,7 +51,7 @@ public class ReplicationDAOImpl extends GenericDAOImpl<Replication> implements R
 	private CouchDbInstance couchdbInstance;
 
 	@Autowired
-    public ReplicationDAOImpl(@SuppressWarnings("SpringJavaAutowiringInspection") @Qualifier("couchdbConfig") CouchDbICureConnector couchdb, @Qualifier("couchdbInstance") CouchDbInstance couchdbInstance, IDGenerator idGenerator, @Qualifier("cacheManager") CacheManager cacheManager) {
+    public ReplicationDAOImpl(@SuppressWarnings("SpringJavaAutowiringInspection") @Qualifier("couchdbConfig") CouchDbICureConnector couchdb, @Qualifier("couchdbInstance") CouchDbInstance couchdbInstance, IDGenerator idGenerator, @Qualifier("entitiesCacheManager") CacheManager cacheManager) {
         super(Replication.class, couchdb, idGenerator);
 
         this.couchdbInstance = couchdbInstance;
@@ -98,8 +98,8 @@ public class ReplicationDAOImpl extends GenericDAOImpl<Replication> implements R
 	}
 
 	@Override
-	public void startReplication(DatabaseSynchronization databaseSynchronization) {
-		this.couchdbInstance.replicate(new ReplicationCommand.Builder().source(databaseSynchronization.getSource()).target(databaseSynchronization.getTarget()).continuous(true).filter(databaseSynchronization.getFilter()).build());
+	public void startReplication(DatabaseSynchronization databaseSynchronization, boolean continuous) {
+		this.couchdbInstance.replicate(new ReplicationCommand.Builder().source(databaseSynchronization.getSource()).target(databaseSynchronization.getTarget()).continuous(continuous).filter(databaseSynchronization.getFilter()).build());
 	}
 
 	@Override

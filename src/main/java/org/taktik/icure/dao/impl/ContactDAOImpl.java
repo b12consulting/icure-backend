@@ -32,7 +32,6 @@ import org.taktik.icure.dao.impl.ektorp.CouchDbICureConnector;
 import org.taktik.icure.db.PaginatedList;
 import org.taktik.icure.db.PaginationOffset;
 import org.taktik.icure.entities.Contact;
-import org.taktik.icure.entities.Patient;
 import org.taktik.icure.entities.embed.Service;
 
 import java.io.Serializable;
@@ -83,9 +82,8 @@ public class ContactDAOImpl extends GenericIcureDAOImpl<Contact> implements Cont
                 "by_hcparty_openingdate",
                 startKey,
                 endKey,
-                pagination,
-                true
-        );
+                pagination, false
+		);
     }
 
     @Override
@@ -97,8 +95,7 @@ public class ContactDAOImpl extends GenericIcureDAOImpl<Contact> implements Cont
 				"by_hcparty",
 				key,
 				key,
-				pagination,
-                true
+				pagination, false
 		);
 	}
 
@@ -129,53 +126,6 @@ public class ContactDAOImpl extends GenericIcureDAOImpl<Contact> implements Cont
 				String.class)))); //Important to de deduplicate the contact ids
 	}
 
-	@Override
-	//View defined below
-	public List<String> findServicesByLabel(String hcPartyId, String label, Long startValueDate, Long endValueDate) {
-		ComplexKey from = ComplexKey.of(
-				hcPartyId,
-				label,
-				startValueDate
-		);
-		ComplexKey to = ComplexKey.of(
-				hcPartyId,
-				label == null ? ComplexKey.emptyObject() : label,
-				endValueDate  == null ? ComplexKey.emptyObject() : endValueDate
-		);
-
-		ViewQuery viewQuery = createQuery("service_by_hcparty_label")
-				.startKey(from)
-				.endKey(to)
-				.includeDocs(false);
-
-		List<String> ids = db.queryView(viewQuery, String.class);
-		return ids;
-	}
-
-	@Override
-	@View(name = "service_by_hcparty_patient_label", map = "classpath:js/contact/Service_by_hcparty_patient_label.js")
-	public List<String> findServicesByPatientLabel(String hcPartyId, String patientSecretForeignKey, String label, Long startValueDate, Long endValueDate) {
-		ComplexKey from = ComplexKey.of(
-				hcPartyId,
-				patientSecretForeignKey,
-				label == null ? null : label.replaceAll("\\*",""),
-				startValueDate
-		);
-		ComplexKey to = ComplexKey.of(
-				hcPartyId,
-				patientSecretForeignKey,
-				label == null ? ComplexKey.emptyObject() : label.replaceAll("\\*","\ufff0"),
-				endValueDate  == null ? ComplexKey.emptyObject() : endValueDate
-		);
-
-		ViewQuery viewQuery = createQuery("service_by_hcparty_patient_label")
-				.startKey(from)
-				.endKey(to)
-				.includeDocs(false);
-
-		List<String> ids = db.queryView(viewQuery, String.class);
-		return ids;
-	}
 
 	@Override
 	@View(name = "service_by_hcparty_tag", map = "classpath:js/contact/Service_by_hcparty_tag.js")
@@ -234,7 +184,7 @@ public class ContactDAOImpl extends GenericIcureDAOImpl<Contact> implements Cont
     }
 
     @Override
-    @View(name = "service_by_hcparty_code", map = "classpath:js/contact/Service_by_hcparty_code.js")
+    @View(name = "service_by_hcparty_code", map = "classpath:js/contact/Service_by_hcparty_code.js", reduce = "_count")
     public List<String> findServicesByCode(String hcPartyId, String codeType, String codeCode, Long startValueDate, Long endValueDate) {
 		if (startValueDate != null && startValueDate<99999999) { startValueDate = startValueDate * 1000000 ; }
 		if (endValueDate != null && endValueDate<99999999) { endValueDate = endValueDate * 1000000 ; }
@@ -254,13 +204,31 @@ public class ContactDAOImpl extends GenericIcureDAOImpl<Contact> implements Cont
         ViewQuery viewQuery = createQuery("service_by_hcparty_code")
                 .startKey(from)
                 .endKey(to)
+		        .reduce(false)
                 .includeDocs(false);
 
         List<String> ids = db.queryView(viewQuery, String.class);
         return ids;
     }
 
-    @Override
+	@Override
+	public List<CouchKeyValue<Long>> listCodesFrequencies(String hcPartyId, String codeType) {
+		ComplexKey from = ComplexKey.of(
+				hcPartyId,
+				codeType,
+				null
+		);
+		ComplexKey to = ComplexKey.of(
+				hcPartyId,
+				codeType,
+				ComplexKey.emptyObject()
+		);
+
+		return ((CouchDbICureConnector) db).queryViewWithKeys(createQuery("service_by_hcparty_code").startKey(from).endKey(to).includeDocs(false).reduce(true).group(true).groupLevel(3), Long.class);
+    }
+
+
+	@Override
     @View(name = "service_by_hcparty_patient_code", map = "classpath:js/contact/Service_by_hcparty_patient_code.js")
     public List<String> findServicesByPatientCode(String hcPartyId, String patientSecretForeignKey, String codeType, String codeCode, Long startValueDate, Long endValueDate) {
     	if (startValueDate != null && startValueDate<99999999) { startValueDate = startValueDate * 1000000 ; }
@@ -298,15 +266,6 @@ public class ContactDAOImpl extends GenericIcureDAOImpl<Contact> implements Cont
 
         return db.queryView(viewQuery, String.class);
 	}
-
-    @Override
-    @View(name = "service_by_hcparty_label", map = "classpath:js/contact/Service_by_hcparty_label.js", reduce = "function(keys, values, rereduce) {if (rereduce) {return sum(values);} else {return values.length;}}")
-    public List<CouchKeyValue<Long>> listServicesByLabel(String hcPartyId, String label) {
-		ComplexKey startKey = ComplexKey.of(hcPartyId, label);
-		ComplexKey endKey = ComplexKey.of(hcPartyId, label == null ? ComplexKey.emptyObject() : null);
-		List<CouchKeyValue<Long>> service_by_hcparty_label = ((CouchDbICureConnector) db).queryViewWithKeys(createQuery("service_by_hcparty_label").startKey(startKey).endKey(endKey).includeDocs(false).reduce(true).group(true), Long.class);
-		return service_by_hcparty_label.stream().map(c->new CouchKeyValue<>(ComplexKey.of(c.getKey().getComponents().get(1)),c.getValue())).collect(Collectors.toList());
-    }
 
     @Override
     public List<Contact> listByServices(Collection<String> services) {

@@ -20,9 +20,9 @@
 package org.taktik.icure.logic.impl
 
 
-import com.drew.lang.annotations.NotNull
 import com.google.common.base.Preconditions
 import com.google.common.collect.ImmutableMap
+import org.jetbrains.annotations.NotNull
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.taktik.icure.dao.CodeDAO
@@ -123,13 +123,14 @@ class CodeLogicImpl(val codeDAO: CodeDAO) : GenericLogicImpl<Code, CodeDAO>(), C
                     if (!codes.containsKey(newCode.id)) {
                         create(newCode)
                     } else {
-                        try {
-                            newCode.rev = codes[newCode.id]!!.rev
-                            modify(newCode)
-                        } catch (ex2: Exception) {
-                            logger.info("Could not create code " + e.name, ex2)
+                        newCode.rev = codes[newCode.id]!!.rev
+                        if (codes[newCode.id] != newCode) {
+                            try {
+                                modify(newCode)
+                            } catch (ex2: Exception) {
+                                logger.info("Could not create code " + e.name, ex2)
+                            }
                         }
-
                     }
                 }
             }

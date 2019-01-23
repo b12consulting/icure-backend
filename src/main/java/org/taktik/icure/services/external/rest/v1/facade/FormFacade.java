@@ -242,6 +242,30 @@ public class FormFacade implements OpenApiFacade {
 	}
 
 	@ApiOperation(
+			value = "Modify a batch of forms",
+			response = FormDto.class,
+			responseContainer = "Array",
+			httpMethod = "PUT",
+			notes = "Returns the modified forms."
+	)
+	@PUT
+	@Path("/batch")
+	public Response modifyForms(List<FormDto> formDtos) {
+		if (formDtos == null) {
+			return Response.status(400).type("text/plain").entity("A required query parameter was not specified for this request.").build();
+		}
+
+		try {
+			List<Form> forms = formLogic.updateEntities(formDtos.stream().map(f -> mapper.map(f, Form.class)).collect(Collectors.toList()));
+			return Response.ok().entity(forms.stream().map(f -> mapper.map(f, FormDto.class)).collect(Collectors.toList())).build();
+
+		} catch (Exception e) {
+			log.warn(e.getMessage(), e);
+			return Response.status(400).type("text/plain").entity(e.getMessage()).build();
+		}
+	}
+
+	@ApiOperation(
 			value = "List forms found By Healthcare Party and secret foreign keys.",
 			response = FormDto.class,
 			responseContainer = "Array",
@@ -321,13 +345,13 @@ public class FormFacade implements OpenApiFacade {
 			value = "Gets all form templates")
 	@GET
 	@Path("/template/bySpecialty/{specialityCode}")
-	public Response findFormTemplatesBySpeciality(@PathParam("specialityCode") String specialityCode) {
+	public Response findFormTemplatesBySpeciality(@PathParam("specialityCode") String specialityCode, @QueryParam("loadLayout") Boolean loadLayout) {
 		Response response;
 
 		if (specialityCode == null) {
 			response = ResponseUtils.badRequest("Cannot retrieve form templates: provided speciality Code is null");
 		} else {
-			List<FormTemplate> formTemplates = formTemplateLogic.getFormTemplatesBySpecialty(specialityCode);
+			List<FormTemplate> formTemplates = formTemplateLogic.getFormTemplatesBySpecialty(specialityCode, false);
 			return ResponseUtils.ok(formTemplates.stream().map((ft) -> mapper.map(ft, FormTemplateDto.class)).collect(Collectors.toList()));
 		}
 
@@ -341,9 +365,9 @@ public class FormFacade implements OpenApiFacade {
 	@GET
 	@Path("/template")
 	public Response findFormTemplates() {
-		List<FormTemplate> formTemplates = null;
+		List<FormTemplate> formTemplates;
 		try {
-			formTemplates = formTemplateLogic.getFormTemplatesByUser(sessionLogic.getCurrentUserId());
+			formTemplates = formTemplateLogic.getFormTemplatesByUser(sessionLogic.getCurrentUserId(), false);
 		} catch (Exception e) {
 			log.warn(e.getMessage(), e);
 			return Response.status(400).type("text/plain").entity(e.getMessage()).build();

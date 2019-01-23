@@ -102,6 +102,11 @@ public class DocumentLogicImpl extends GenericLogicImpl<Document, DocumentDAO> i
 	}
 
 	@Override
+	public List<Document> findDocumentsByDocumentTypeHCPartySecretMessageKeys(String documentTypeCode, String hcPartyId, ArrayList<String> secretForeignKeys) {
+		return documentDAO.findDocumentsByDocumentTypeHCPartySecretMessageKeys(documentTypeCode, hcPartyId, secretForeignKeys);
+	}
+
+	@Override
 	public List<Document> findDocumentsByHCPartySecretMessageKeys(String hcPartyId, ArrayList<String> secretForeignKeys) {
 		return documentDAO.findDocumentsByHCPartySecretMessageKeys(hcPartyId, secretForeignKeys);
 	}
@@ -109,6 +114,16 @@ public class DocumentLogicImpl extends GenericLogicImpl<Document, DocumentDAO> i
 	@Override
 	public List<Document> findWithoutDelegation(int limit) {
 		return documentDAO.findDocumentsWithNoDelegations(limit);
+	}
+
+	@Override
+	public List<Document> getDocuments(List<String> documentIds) {
+		return documentDAO.getList(documentIds);
+	}
+
+	@Override
+	public List<Document> updateDocuments(List<Document> documents) {
+		return documentDAO.save(documents);
 	}
 
 	@Override

@@ -206,19 +206,19 @@ public class ContactFacade implements OpenApiFacade {
     }
 
     @ApiOperation(
-            value = "Get the list of all used label services",
-            response = LabelledOccurenceDto.class,
-            responseContainer = "Array",
-            httpMethod = "GET",
-            notes = ""
-    )
-    @GET
-    @Path("/service/labels/{minOccurences}")
-    public Response getServiceLabelsOccurences(@PathParam("minOccurences") Long minOccurences) {
-        return Response.ok().entity(contactLogic.getServiceLabelsOccurences(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId(),minOccurences)).build();
-    }
+			value = "Get the list of all used codes frequencies in services",
+			response = LabelledOccurenceDto.class,
+			responseContainer = "Array",
+			httpMethod = "GET",
+			notes = ""
+	)
+	@GET
+	@Path("/service/codes/{codeType}/{minOccurences}")
+	public Response getServiceCodesOccurences(@PathParam("codeType") String codeType, @PathParam("minOccurences") Long minOccurences) {
+		return Response.ok().entity(contactLogic.getServiceCodesOccurences(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId(),codeType,minOccurences)).build();
+	}
 
-    @ApiOperation(
+	@ApiOperation(
             value = "List contacts found By Healthcare Party and form Id.",
             response = ContactDto.class,
             responseContainer = "Array",
@@ -330,16 +330,14 @@ public class ContactFacade implements OpenApiFacade {
 			notes = "Keys must be delimited by coma"
 	)
 	@POST
-	@Path("/byHcPartySecretForeignKeys/delegations")
+	@Path("/delegations")
 	public Response setContactsDelegations(List<IcureStubDto> stubs) throws Exception {
 		List<Contact> contacts = contactLogic.getContacts(stubs.stream().map(IcureDto::getId).collect(Collectors.toList()));
-		contacts.forEach(contact -> {
-			stubs.stream().filter(s -> s.getId().equals(contact.getId())).findFirst().ifPresent(stub -> {
-				stub.getDelegations().forEach((s, delegationDtos) -> contact.getDelegations().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
-				stub.getEncryptionKeys().forEach((s, delegationDtos) -> contact.getEncryptionKeys().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
-				stub.getCryptedForeignKeys().forEach((s, delegationDtos) -> contact.getCryptedForeignKeys().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
-			});
-		});
+		contacts.forEach(contact -> stubs.stream().filter(s -> s.getId().equals(contact.getId())).findFirst().ifPresent(stub -> {
+			stub.getDelegations().forEach((s, delegationDtos) -> contact.getDelegations().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
+			stub.getEncryptionKeys().forEach((s, delegationDtos) -> contact.getEncryptionKeys().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
+			stub.getCryptedForeignKeys().forEach((s, delegationDtos) -> contact.getCryptedForeignKeys().put(s, delegationDtos.stream().map(ddto -> mapper.map(ddto, Delegation.class)).collect(Collectors.toSet())));
+		}));
 		contactLogic.updateEntities(contacts);
 		return Response.ok().build();
 	}
@@ -439,6 +437,32 @@ public class ContactFacade implements OpenApiFacade {
                 return Response.status(500).type("text/plain").entity("Contact modification failed.").build();
             }
         } catch (MissingRequirementsException e) {
+            log.warn(e.getMessage(), e);
+            return Response.status(400).type("text/plain").entity(e.getMessage()).build();
+        }
+    }
+
+    @ApiOperation(
+            value = "Modify a batch of contacts",
+            response = ContactDto.class,
+            responseContainer = "Array",
+            httpMethod = "PUT",
+            notes = "Returns the modified contacts."
+    )
+    @PUT
+    @Path("/batch")
+    public Response modifyContacts(List<ContactDto> contactDtos) {
+        if (contactDtos == null) {
+            return Response.status(400).type("text/plain").entity("A required query parameter was not specified for this request.").build();
+        }
+
+        try {
+            contactDtos.forEach ( c -> handleServiceIndexes(c) );
+
+            List<Contact> contacts = contactLogic.updateEntities(contactDtos.stream().map(f -> mapper.map(f, Contact.class)).collect(Collectors.toList()));
+            return Response.ok().entity(contacts.stream().map(f -> mapper.map(f, ContactDto.class)).collect(Collectors.toList())).build();
+
+        } catch (Exception e) {
             log.warn(e.getMessage(), e);
             return Response.status(400).type("text/plain").entity(e.getMessage()).build();
         }

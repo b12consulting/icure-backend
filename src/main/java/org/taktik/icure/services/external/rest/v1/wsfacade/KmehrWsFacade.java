@@ -26,8 +26,10 @@ import javax.ws.rs.Path;
 
 import ma.glasnost.orika.MapperFacade;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.taktik.icure.be.ehealth.logic.kmehr.smf.SoftwareMedicalFileLogic;
 import org.taktik.icure.be.ehealth.logic.kmehr.sumehr.SumehrLogic;
+import org.taktik.icure.be.ehealth.logic.kmehr.medicationscheme.MedicationSchemeLogic;
 import org.taktik.icure.entities.HealthcareParty;
 import org.taktik.icure.logic.HealthcarePartyLogic;
 import org.taktik.icure.logic.PatientLogic;
@@ -37,14 +39,17 @@ import org.taktik.icure.services.external.http.websocket.WebSocketOperation;
 import org.taktik.icure.services.external.http.websocket.WebSocketParam;
 import org.taktik.icure.services.external.rest.v1.dto.be.kmehr.SoftwareMedicalFileExportDto;
 import org.taktik.icure.services.external.rest.v1.dto.be.kmehr.SumehrExportInfoDto;
+import org.taktik.icure.services.external.rest.v1.dto.be.kmehr.MedicationSchemeExportInfoDto;
 
 
-@Path("/be_kmehr")
+@Component
+@Path("/ws/be_kmehr")
 public class KmehrWsFacade {
 	private MapperFacade mapper;
 	private SessionLogic sessionLogic;
 	private SumehrLogic sumehrLogic;
 	private SoftwareMedicalFileLogic softwareMedicalFileLogic;
+	private MedicationSchemeLogic medicationSchemeLogic;
 	private HealthcarePartyLogic healthcarePartyLogic;
 	private PatientLogic patientLogic;
 
@@ -53,7 +58,9 @@ public class KmehrWsFacade {
 	public void generateSumehr(@WebSocketParam("patientId") String patientId, @WebSocketParam("language") String language, @WebSocketParam("info") SumehrExportInfoDto info, KmehrFileOperation operation) throws IOException {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream(10000);
 		try {
-			sumehrLogic.createSumehr(bos, patientLogic.getPatient(patientId), info.getSecretForeignKeys(), healthcarePartyLogic.getHealthcareParty(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId()), mapper.map(info.getRecipient(), HealthcareParty.class), language, info.getComment(), operation);
+			sumehrLogic.createSumehr(bos, patientLogic.getPatient(patientId), info.getSecretForeignKeys(),
+					healthcarePartyLogic.getHealthcareParty(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId()),
+					mapper.map(info.getRecipient(), HealthcareParty.class), language, info.getComment(), operation);
 			operation.binaryResponse(ByteBuffer.wrap(bos.toByteArray()));
 			bos.close();
 		} catch (Exception e) {
@@ -92,7 +99,23 @@ public class KmehrWsFacade {
 	public void generateSmfExport(@WebSocketParam("patientId") String patientId , @WebSocketParam("language") String language, @WebSocketParam("info") SoftwareMedicalFileExportDto info, KmehrFileOperation operation) throws IOException {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream(10000);
 		try {
-			softwareMedicalFileLogic.createSmfExport(bos, patientLogic.getPatient(patientId), info.getSecretForeignKeys(), healthcarePartyLogic.getHealthcareParty(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId()), language, operation);
+			softwareMedicalFileLogic.createSmfExport(bos, patientLogic.getPatient(patientId), info.getSecretForeignKeys(), healthcarePartyLogic.getHealthcareParty(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId()), language, operation, operation);
+			operation.binaryResponse(ByteBuffer.wrap(bos.toByteArray()));
+			bos.close();
+		} catch (Exception e) {
+			operation.errorResponse(e);
+		}
+	}
+
+	@Path("/generateMedicationScheme")
+	@WebSocketOperation(adapterClass = KmehrFileOperation.class)
+	public void generateMedicationSchemeExport(@WebSocketParam("patientId") String patientId , @WebSocketParam("language") String language, @WebSocketParam("info") MedicationSchemeExportInfoDto info,  @WebSocketParam("version") Integer version, KmehrFileOperation operation) throws IOException {
+		ByteArrayOutputStream bos = new ByteArrayOutputStream(10000);
+		try {
+			//fun createMedicationSchemeExport(os: OutputStream, patient: Patient, sfks: List<String>, sender: HealthcareParty, language: String, version: Int, decryptor: AsyncDecrypt?, progressor: AsyncProgress?)
+			medicationSchemeLogic.createMedicationSchemeExport(bos, patientLogic.getPatient(patientId), info.getSecretForeignKeys(),
+					healthcarePartyLogic.getHealthcareParty(sessionLogic.getCurrentSessionContext().getUser().getHealthcarePartyId()),
+					language, version, operation, null);
 			operation.binaryResponse(ByteBuffer.wrap(bos.toByteArray()));
 			bos.close();
 		} catch (Exception e) {
@@ -114,6 +137,9 @@ public class KmehrWsFacade {
 	public void setSumehrLogic(SumehrLogic sumehrLogic) {
 		this.sumehrLogic = sumehrLogic;
 	}
+
+	@Autowired
+	public void setMedicationSchemeLogic(MedicationSchemeLogic medicationSchemeLogic) { this.medicationSchemeLogic = medicationSchemeLogic; }
 
 	@Autowired
 	public void setHealthcarePartyLogic(HealthcarePartyLogic healthcarePartyLogic) {

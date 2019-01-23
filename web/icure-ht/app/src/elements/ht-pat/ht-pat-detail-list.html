@@ -4,7 +4,6 @@
 <link rel="import" href="../../../bower_components/vaadin-material-theme/vaadin-grid.html">
 <link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid.html">
 
-<link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid.html">
 <link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid-column.html">
 <link rel="import" href="../../../bower_components/vaadin-grid/vaadin-grid-sorter.html">
 <link rel="import" href="../../../bower_components/vaadin-themes/material/vaadin-date-picker.html">
@@ -47,16 +46,17 @@
             }
 
             vaadin-grid{
-                height: unset;
+                /*height: unset;*/
 				max-height:calc(100% - 104px);
 				margin: 32px 32px 0;
 				box-shadow: var(--app-shadow-elevation-1);
 				border: none;
                 border-radius: 3px;
-                overflow-y: scroll;
+                overflow-y: auto;
+                flex-grow: 1;
 			}
 
-            
+
         </style>
         <vaadin-grid id="dynamic-list" size="10" multi-sort="[[multiSort]]" active-item="{{activeItem}}" items="[[_services(contacts,contacts.*)]]" on-tap="click">
             <vaadin-grid-column flex-grow="2" width="80px">
@@ -93,7 +93,7 @@
     </template>
     <script>
 
-class HtPatDetailList extends Polymer.TkLocalizerMixin(Polymer.mixinBehaviors([], Polymer.Element)) {
+class HtPatDetailList extends Polymer.TkLocalizerMixin(Polymer.Element) {
     static get is() {
         return 'ht-pat-detail-list';
     }
@@ -151,7 +151,7 @@ class HtPatDetailList extends Polymer.TkLocalizerMixin(Polymer.mixinBehaviors([]
     }
 
     _date(item) {
-        return item ? this.api.moment(item.modified).format(item > 99991231 ? 'DD/MM/YYYY HH:mm' : 'DD/MM/YYYY') : '';
+        return (item && item.modified) ? this.api.moment(item.modified).format(item > 99991231 ? 'DD/MM/YYYY HH:mm' : 'DD/MM/YYYY') : '';
     }
 
     _author(item) {
